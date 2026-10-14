@@ -341,8 +341,7 @@
         flippingTime: 900,
         drawShadow: true,
         showPageCorners: true,
-        swipeDistance: 30,
-        disableFlipByClick: true   // kliklər aşağıda idarə olunur (ekranın sağı / solu)
+        swipeDistance: 30
       });
       loadAround(0);
       flip.loadFromHTML(book.querySelectorAll(".page"));
@@ -373,20 +372,30 @@
         gotoInput.focus();
         gotoInput.select();
       });
-      const closeGoto = () => bottom.classList.remove("editing");
+      // Birbaşa həmin səhifəni açır (kitabxananın turnToPage funksiyası).
+      // flip(n) və turnToPage+flipNext kitabın vəziyyətini qarışdırır — işlətmirik.
+      function goToPage(target) {
+        const portrait = flip.getOrientation() === "portrait";
+        const start = portrait ? target : target - (target % 2);   // cütün sol səhifəsi
+        if (start === flip.getCurrentPageIndex()) return;
+        loadAround(start);
+        flip.turnToPage(start);
+        update();
+      }
+
+      // Enter və ya xanadan çıxmaq -> yazılan səhifəyə keç; Esc -> ləğv et
+      let cancelGoto = false;
       gotoInput.addEventListener("keydown", e => {
         e.stopPropagation();
-        if (e.key === "Escape") return closeGoto();
-        if (e.key !== "Enter") return;
-        const n = parseInt(gotoInput.value, 10);
-        closeGoto();
-        gotoInput.blur();
-        if (!(n >= 1)) return;
-        const target = Math.min(n, pages.length) - 1;
-        loadAround(target);
-        flip.flip(target);   // bir dəfə vərəq çevrilməsi ilə birbaşa o səhifəyə
+        if (e.key === "Escape") { cancelGoto = true; gotoInput.blur(); }
+        if (e.key === "Enter") gotoInput.blur();
       });
-      gotoInput.addEventListener("blur", closeGoto);
+      gotoInput.addEventListener("blur", () => {
+        bottom.classList.remove("editing");
+        const n = parseInt(gotoInput.value, 10);
+        if (cancelGoto || !(n >= 1)) { cancelGoto = false; return; }
+        goToPage(Math.min(n, pages.length) - 1);
+      });
 
       document.addEventListener("keydown", e => {
         if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {e.preventDefault(); flip.flipNext();}
@@ -411,7 +420,8 @@
         down = bottom.classList.contains("editing") ? null : { x: e.clientX, y: e.clientY, t: Date.now() };
       });
       document.addEventListener("pointerup", e => {
-        if (!down || e.button !== 0 || e.target.closest(".count, .goto")) return;
+        // kitabın üstündəki klikləri kitabxana özü çevirir (sol yarı geri, sağ yarı irəli)
+        if (!down || e.button !== 0 || e.target.closest(".count, .goto, #book")) { down = null; return; }
         const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
         const long = Date.now() - down.t > 600;
         down = null;
