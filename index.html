@@ -8,7 +8,7 @@
   :root {
     --bg: #2b2620;
     --bg2: #3a332b;
-    --paper: #fbf8f2;
+    --paper: #ffffff;
     --paper-edge: #e9e2d4;
     --ink: #2d2a26;
     --muted: #8b8274;
@@ -85,7 +85,7 @@
     padding: 4% 0; position: relative;
   }
   .img img {
-    max-width: 100%; max-height: 100%; object-fit: contain;
+    width: 100%; height: 100%; object-fit: contain; /* sığdığı qədər, kəsmədən, ortada */
     opacity: 0; transition: opacity .3s; pointer-events: none;
   }
   .img img.ok { opacity: 1; }
@@ -162,7 +162,7 @@
     el.className = "page";
     el.dataset.density = "soft";
     el.innerHTML = `<div class="content">
-        <div class="head"><b>${p.code}</b><span>${p.idx} / ${totals[p.code]}</span></div>
+        <div class="head"><b>${p.code === "new" ? "" : p.code}</b><span>${p.idx} / ${totals[p.code]}</span></div>
         <div class="img"><img alt="${p.name}" decoding="async"><div class="spinner"></div></div>
         <div class="foot">${i + 1}</div>
       </div>`;

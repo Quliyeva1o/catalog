@@ -8,10 +8,12 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const SRC = join(root, "products"), OUT = join(root, "images");
 const list = [];
+// 1, 2, … 10 (rəqəmlərə görə), mətn kimi 1, 10, 2 yox
+const byName = (a, b) => a.localeCompare(b, "en", { numeric: true });
 
-for (const model of readdirSync(SRC).sort()) {
+for (const model of readdirSync(SRC).sort(byName)) {
   if (!statSync(join(SRC, model)).isDirectory()) continue;
-  for (const file of readdirSync(join(SRC, model)).sort()) {
+  for (const file of readdirSync(join(SRC, model)).sort(byName)) {
     if (!/\.(png|jpe?g|webp)$/i.test(file)) continue;
     const name = file.slice(0, -extname(file).length) + ".webp";
     const src = join(SRC, model, file), dest = join(OUT, model, name);
