@@ -1,5 +1,5 @@
 // products/<model>/<ad>.png  ->  images/<model>/<ad>.webp  (+ images.js siyahısı)
-// İşə salmaq: npm install && npm run build
+// İşə salmaq: npm install && npm run images
 import sharp from "sharp";
 import { readdirSync, statSync, mkdirSync, existsSync, writeFileSync } from "node:fs";
 import { join, dirname, extname } from "node:path";

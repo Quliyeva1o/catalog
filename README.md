@@ -6,7 +6,7 @@ Yeni şəkil əlavə etmək: orijinal şəkilləri `products/<Model>/` qovluğun
 
 ```
 npm install
-npm run build
+npm run images
 ```
 
 Bu, `images/` içində kiçildilmiş WebP-ləri və `images.js` siyahısını yaradır.
