@@ -1,0 +1,4 @@
+node_modules/
+.claude/
+# Orijinal PNG-lər (çox böyükdür) — saytda img/ içindəki WebP-lər istifadə olunur
+/Комплекс*/

@@ -1,0 +1,7 @@
+{
+  "name": "catalog",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node tools/optimize.mjs" },
+  "devDependencies": { "sharp": "0.33.5" }
+}

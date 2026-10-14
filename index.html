@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kataloq</title>
+<style>
+  :root {
+    --bg: #2b2620;
+    --bg2: #3a332b;
+    --paper: #fbf8f2;
+    --paper-edge: #e9e2d4;
+    --ink: #2d2a26;
+    --muted: #8b8274;
+    --accent: #e8622a;
+    --ui: rgba(255,255,255,.08);
+    --ui-hover: rgba(255,255,255,.16);
+    --ui-text: #f3ede3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 40%, var(--bg2), var(--bg) 70%);
+    color: var(--ui-text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .bar {
+    position: fixed; inset: 0 0 auto 0; height: 56px;
+    display: flex; align-items: center; gap: 12px; padding: 0 16px; z-index: 20;
+  }
+  .bar h1 {
+    font-size: 15px; font-weight: 600; margin: 0; letter-spacing: .02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
+  }
+
+  .stage {
+    position: fixed; inset: 56px 0 64px 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #wrap { position: relative; }
+  #wrap::before { /* soft shadow under the book */
+    content: ""; position: absolute; inset: 3% 2% -1% 2%;
+    background: rgba(0,0,0,.5); filter: blur(24px); border-radius: 10px;
+  }
+
+  /* ---------- pages ---------- */
+  .page {
+    background: var(--paper);
+    overflow: hidden;
+  }
+  .page .content {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    padding: 5% 6% 4%;
+    color: var(--ink);
+  }
+  /* paper feel + spine shading (left / right pages) */
+  .page::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0) 60%, rgba(120,100,70,.06) 100%);
+  }
+  .page.--left::after {
+    background:
+      linear-gradient(to left, rgba(0,0,0,.22), rgba(0,0,0,.06) 3%, rgba(0,0,0,0) 10%),
+      linear-gradient(to right, rgba(0,0,0,.05), rgba(0,0,0,0) 2%);
+  }
+  .page.--right::after {
+    background:
+      linear-gradient(to right, rgba(0,0,0,.22), rgba(0,0,0,.06) 3%, rgba(0,0,0,0) 10%),
+      linear-gradient(to left, rgba(0,0,0,.05), rgba(0,0,0,0) 2%);
+  }
+  .head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 13px; color: var(--muted);
+    border-bottom: 1px solid var(--paper-edge); padding-bottom: .6em;
+  }
+  .head b { color: var(--ink); font-size: 1.25em; letter-spacing: .04em; }
+  .img {
+    flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+    padding: 4% 0; position: relative;
+  }
+  .img img {
+    max-width: 100%; max-height: 100%; object-fit: contain;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  .img img.ok { opacity: 1; }
+  .spinner {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid var(--paper-edge); border-top-color: var(--accent);
+    animation: spin .9s linear infinite; position: absolute;
+  }
+  .img img.ok + .spinner { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .foot { text-align: center; font-size: 12px; color: var(--muted); }
+
+
+  .bottom {
+    position: fixed; inset: auto 0 0 0; height: 64px; display: flex; align-items: center;
+    gap: 14px; padding: 0 24px; justify-content: center;
+  }
+  .bottom .count { font-variant-numeric: tabular-nums; font-size: 14px; min-width: 90px; text-align: center; opacity: .85; }
+
+  @media (max-width: 700px) {
+    .bar h1 { font-size: 13px; }
+  }
+
+  .zoom {
+    position: fixed; inset: 0; background: rgba(20,17,14,.96); z-index: 50;
+    display: none; align-items: center; justify-content: center; cursor: zoom-out;
+  }
+  .zoom.on { display: flex; }
+  .zoom img { max-width: 96vw; max-height: 94vh; object-fit: contain; background: var(--paper); border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1 id="title">Kataloq</h1>
+</div>
+
+<div class="stage">
+  <div id="wrap"><div id="book"></div></div>
+</div>
+
+<div class="bottom">
+  <div class="count" id="count"></div>
+</div>
+
+<div class="zoom" id="zoom"><img id="zoomImg" alt=""></div>
+
+<script src="images.js"></script>
+<script src="lib/page-flip.browser.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const files = window.CATALOG_IMAGES || [];
+  const category = files.length ? files[0].split("/").slice(-3)[0] : "Kataloq";
+  $("title").textContent = category;
+  document.title = category;
+
+  // ---- one image per page, in folder order ----
+  const totals = {};
+  const pages = files.map(path => {
+    const parts = path.split("/");
+    const code = parts[parts.length - 2];
+    totals[code] = (totals[code] || 0) + 1;
+    return {
+      src: parts.map(encodeURIComponent).join("/"),
+      code, idx: totals[code],
+      name: parts[parts.length - 1].replace(/\.[^.]+$/, "")
+    };
+  });
+
+  const book = $("book");
+  pages.forEach((p, i) => {
+    const el = document.createElement("div");
+    el.className = "page";
+    el.dataset.density = "soft";
+    el.innerHTML = `<div class="content">
+        <div class="head"><b>${p.code}</b><span>${p.idx} / ${totals[p.code]}</span></div>
+        <div class="img"><img alt="${p.name}" decoding="async"><div class="spinner"></div></div>
+        <div class="foot">${i + 1}</div>
+      </div>`;
+    const img = el.querySelector("img");
+    img.onload = () => img.classList.add("ok");
+    book.appendChild(el);
+  });
+  const imgEls = [...book.querySelectorAll("img")];
+
+  // images are large: only keep nearby pages loaded
+  function loadAround(i) {
+    imgEls.forEach((img, k) => {
+      if (k >= i - 3 && k <= i + 5) {
+        if (!img.getAttribute("src")) img.src = pages[k].src;
+      } else if (img.getAttribute("src") && Math.abs(k - i) > 12) {
+        img.removeAttribute("src"); img.classList.remove("ok");
+      }
+    });
+  }
+
+  // ---- size the book to fit the screen ----
+  const PW = 590, PH = 500;           // page proportions (w / h ≈ 1.18)
+  const wrap = $("wrap");
+  function fit() {
+    const vw = window.innerWidth, vh = window.innerHeight - 56 - 64 - 24;
+    const two = vw >= 900 && vw / vh >= 1.3;
+    const maxW = vw - (vw < 700 ? 24 : 140);
+    const w = Math.min(maxW, vh * (PW / PH) * (two ? 2 : 1));
+    wrap.style.width = w + "px";
+  }
+  fit();
+  window.addEventListener("resize", fit); // registered before PageFlip so it runs first
+
+  const flip = new St.PageFlip(book, {
+    width: PW, height: PH,
+    size: "stretch",
+    minWidth: 200, maxWidth: 2000, minHeight: 170, maxHeight: 1700,
+    maxShadowOpacity: 0.6,
+    showCover: false,
+    usePortrait: true,
+    mobileScrollSupport: false,
+    flippingTime: 900,
+    drawShadow: true,
+    showPageCorners: true,
+    swipeDistance: 30
+  });
+  loadAround(0);
+  flip.loadFromHTML(book.querySelectorAll(".page"));
+
+  // ---- UI ----
+
+  const count = $("count");
+  function update() {
+    const i = flip.getCurrentPageIndex();
+    const portrait = flip.getOrientation() === "portrait";
+    loadAround(i);
+    const last = pages.length - 1;
+    count.textContent = (portrait || i >= last ? `${i + 1}` : `${i + 1}–${i + 2}`) + ` / ${pages.length}`;
+  }
+  flip.on("flip", update);
+  flip.on("changeOrientation", update);
+  flip.on("changeState", e => { if (e.data === "user_fold" || e.data === "flipping") loadAround(flip.getCurrentPageIndex()); });
+  update();
+
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") $("zoom").classList.remove("on");
+    if ($("zoom").classList.contains("on")) return;
+    if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") { e.preventDefault(); flip.flipNext(); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); flip.flipPrev(); }
+    if (e.key === "Home") { flip.turnToPage(0); update(); }
+    if (e.key === "End") { flip.turnToPage(pages.length - 1); update(); }
+  });
+
+  let wheelLock = 0;
+  window.addEventListener("wheel", e => {
+    if ($("zoom").classList.contains("on")) return;
+    const now = Date.now();
+    if (now < wheelLock || Math.abs(e.deltaY) < 20) return;
+    wheelLock = now + 950;
+    e.deltaY > 0 ? flip.flipNext() : flip.flipPrev();
+  }, { passive: true });
+
+  // double-click a page to see the picture large
+  book.addEventListener("dblclick", e => {
+    const r = book.getBoundingClientRect();
+    const i = flip.getCurrentPageIndex();
+    const right = flip.getOrientation() === "landscape" && e.clientX > r.left + r.width / 2;
+    const p = pages[i + (right ? 1 : 0)];
+    if (!p) return;
+    $("zoomImg").src = p.src;
+    $("zoom").classList.add("on");
+  });
+  $("zoom").onclick = () => $("zoom").classList.remove("on");
+})();
+</script>
+</body>
+</html>
