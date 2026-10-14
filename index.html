@@ -203,7 +203,43 @@
       min-width: 90px;
       text-align: center;
       opacity: .85;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
     }
+
+    .bottom .count:hover {
+      opacity: 1;
+      background: rgba(255, 255, 255, .08);
+    }
+
+    /* səhifə nömrəsi yazmaq üçün */
+    .bottom .goto {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .bottom.editing .count { display: none; }
+    .bottom.editing .goto { display: flex; }
+
+    .goto input {
+      width: 72px;
+      height: 34px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 10px;
+      font: inherit;
+      font-size: 15px;
+      text-align: center;
+      color: var(--ink);
+      background: var(--paper);
+      outline: 2px solid var(--accent);
+    }
+
+    .goto input::-webkit-inner-spin-button { display: none; }
+    .goto span { opacity: .7; }
 
     @media (max-width: 700px) {
       .bar h1 {
@@ -227,7 +263,8 @@
   </div>
 
   <div class="bottom">
-    <div class="count" id="count"></div>
+    <div class="count" id="count" title="Səhifəyə keçmək üçün klikləyin"></div>
+    <label class="goto"><input id="gotoInput" type="number" inputmode="numeric" min="1"><span id="gotoTotal"></span></label>
   </div>
 
   <script src="images.js"></script>
@@ -326,6 +363,31 @@
       update();
 
 
+      // aşağıdakı səhifə nömrəsinə klik -> rəqəm yazıb Enter -> o səhifəyə keç
+      const bottom = document.querySelector(".bottom"), gotoInput = $("gotoInput");
+      $("gotoTotal").textContent = "/ " + pages.length;
+      gotoInput.max = pages.length;
+      count.addEventListener("click", () => {
+        bottom.classList.add("editing");
+        gotoInput.value = flip.getCurrentPageIndex() + 1;
+        gotoInput.focus();
+        gotoInput.select();
+      });
+      const closeGoto = () => bottom.classList.remove("editing");
+      gotoInput.addEventListener("keydown", e => {
+        e.stopPropagation();
+        if (e.key === "Escape") return closeGoto();
+        if (e.key !== "Enter") return;
+        const n = parseInt(gotoInput.value, 10);
+        closeGoto();
+        gotoInput.blur();
+        if (!(n >= 1)) return;
+        const target = Math.min(n, pages.length) - 1;
+        loadAround(target);
+        flip.flip(target);   // bir dəfə vərəq çevrilməsi ilə birbaşa o səhifəyə
+      });
+      gotoInput.addEventListener("blur", closeGoto);
+
       document.addEventListener("keydown", e => {
         if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {e.preventDefault(); flip.flipNext();}
         if (e.key === "ArrowLeft" || e.key === "PageUp") {e.preventDefault(); flip.flipPrev();}
@@ -344,9 +406,12 @@
       // ekranın sağ yarısına klik -> növbəti səhifə, sol yarısına -> əvvəlki
       // (sürüşdürmə / dartma klik sayılmır)
       let down = null;
-      document.addEventListener("pointerdown", e => { down = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+      document.addEventListener("pointerdown", e => {
+        // nömrə yazılarkən kənara klik yalnız yazmanı bağlasın, səhifəni çevirməsin
+        down = bottom.classList.contains("editing") ? null : { x: e.clientX, y: e.clientY, t: Date.now() };
+      });
       document.addEventListener("pointerup", e => {
-        if (!down || e.button !== 0) return;
+        if (!down || e.button !== 0 || e.target.closest(".count, .goto")) return;
         const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
         const long = Date.now() - down.t > 600;
         down = null;
